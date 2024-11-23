@@ -5,6 +5,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -27,7 +28,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MovieNavigation() {
     val navController = rememberNavController()
-    val viewModel = remember { MovieViewModel() }
+    val viewModel: MovieViewModel = viewModel()
 
     NavHost(
         navController = navController,
