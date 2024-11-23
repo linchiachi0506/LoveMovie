@@ -16,3 +16,29 @@ data class Movie(
 data class MoviesResponse(
     val results: List<Movie>
 )
+
+data class MovieDetail(
+    val id: Int,
+    val title: String,
+    val overview: String,
+    val poster_path: String?,
+    val backdrop_path: String?,
+    val release_date: String,
+    val vote_average: Double,
+    val runtime: Int?,
+    val genres: List<Genre>,
+    val production_companies: List<ProductionCompany>,
+)
+
+data class Genre(
+    val id: Int,
+    val name: String
+)
+
+data class ProductionCompany(
+    val id: Int,
+    val name: String,
+    val logo_path: String?,
+    val origin_country: String
+)
+
