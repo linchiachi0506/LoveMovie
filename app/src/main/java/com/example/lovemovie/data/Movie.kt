@@ -42,3 +42,8 @@ data class ProductionCompany(
     val origin_country: String
 )
 
+data class FavoriteBody(
+    val media_id: Int,
+    val media_type: String = "movie",
+    val favorite: Boolean
+)

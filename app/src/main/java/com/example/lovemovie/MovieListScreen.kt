@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Card
@@ -29,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -48,39 +51,27 @@ import com.example.lovemovie.data.TmdbApi
 import com.example.lovemovie.ui.theme.LoveMovieTheme
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MovieListScreen(
     onMovieClick: (Int) -> Unit
 ) {
     val viewModel: MovieViewModel = viewModel()
-
-    val api = remember {
-        Retrofit.Builder()
-            .baseUrl("https://api.themoviedb.org/3/")
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(TmdbApi::class.java)
-    }
-
-    var movies by remember { mutableStateOf(emptyList<Movie>()) }
-
-    LaunchedEffect(Unit) {
-        try {
-            val response = api.getPopularMovies()  // 這裡會使用默認參數
-            movies = response.results
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
+    val movies by viewModel.movies.collectAsState()
+    val context = LocalContext.current
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("熱門電影") },
                 actions = {
-                    // 添加一個查看收藏列表的按鈕
+                    // 測試 markAsFavorite API 的按鈕
+                    IconButton(
+                        onClick = {
+                            viewModel.testMarkAsFavorite()  // 移到 ViewModel 處理
+                        }
+                    ) {
+                        Icon(Icons.Default.Add, "Test API")
+                    }
                     IconButton(onClick = { /* TODO: 顯示收藏列表 */ }) {
                         Icon(
                             imageVector = Icons.Default.Favorite,
@@ -105,17 +96,17 @@ fun MovieListScreen(
                     onMovieClick = onMovieClick
                 )
             }
-
         }
     }
 }
 @Composable
 fun MovieItem(
     movie: Movie,
-    viewModel: MovieViewModel,  // 添加 ViewModel 參數
+    viewModel: MovieViewModel,
     onMovieClick: (Int) -> Unit
 ) {
-    val isFavorite by remember { derivedStateOf { viewModel.isFavorite(movie.id) } }
+    var isFavorite by remember { mutableStateOf(viewModel.isFavorite(movie.id)) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -123,9 +114,8 @@ fun MovieItem(
             .clickable { onMovieClick(movie.id) },
         shape = RoundedCornerShape(8.dp)
     ) {
-        Box {  // 添加 Box 來放置收藏按鈕
+        Box {
             Column {
-                // 海報圖片
                 AsyncImage(
                     model = "https://image.tmdb.org/t/p/w500${movie.poster_path}",
                     contentDescription = movie.title,
@@ -167,25 +157,19 @@ fun MovieItem(
                 }
             }
 
-            // 收藏按鈕
             IconButton(
-                onClick = { viewModel.toggleFavorite(movie.id) },
+                onClick = {
+                    viewModel.toggleFavorite(movie.id)
+                    isFavorite = !isFavorite  // 立即更新 UI 狀態
+                },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(8.dp)
             ) {
                 Icon(
-                    imageVector = if (viewModel.isFavorite(movie.id)) {
-                        Icons.Filled.Favorite
-                    } else {
-                        Icons.Outlined.FavoriteBorder
-                    },
+                    imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     contentDescription = "收藏",
-                    tint = if (viewModel.isFavorite(movie.id)) {
-                        Color.Red
-                    } else {
-                        Color.White
-                    }
+                    tint = if (isFavorite) Color.Red else Color.White
                 )
             }
         }

@@ -25,7 +25,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,7 +42,7 @@ fun MovieDetailScreen(
 ) {
     val movieDetail by viewModel.movieDetail.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val isFavorite by remember { derivedStateOf { viewModel.isFavorite(movieId) } }
+    var isFavorite by remember { mutableStateOf(viewModel.isFavorite(movieId)) }
 
     LaunchedEffect(movieId) {
         viewModel.getMovieDetail(movieId)
@@ -60,7 +62,6 @@ fun MovieDetailScreen(
                     .verticalScroll(rememberScrollState())
             ) {
                 Box {
-                    // 封面圖片
                     AsyncImage(
                         model = "https://image.tmdb.org/t/p/w500${detail.poster_path}",
                         contentDescription = null,
@@ -70,9 +71,11 @@ fun MovieDetailScreen(
                         contentScale = ContentScale.Crop
                     )
 
-                    // 收藏按鈕
                     IconButton(
-                        onClick = { viewModel.toggleFavorite(detail.id) },
+                        onClick = {
+                            viewModel.toggleFavorite(detail.id)
+                            isFavorite = !isFavorite  // 立即更新 UI 狀態
+                        },
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(8.dp)
@@ -99,13 +102,11 @@ fun MovieDetailScreen(
                     }
                 }
 
-                // 內容區域
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    // 標題
                     Text(
                         text = detail.title,
                         style = MaterialTheme.typography.headlineSmall,
@@ -114,7 +115,6 @@ fun MovieDetailScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 評分
                     Text(
                         text = "★ ${detail.vote_average}",
                         style = MaterialTheme.typography.bodyLarge,
@@ -123,7 +123,6 @@ fun MovieDetailScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 簡介
                     Text(
                         text = detail.overview,
                         style = MaterialTheme.typography.bodyMedium
