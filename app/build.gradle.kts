@@ -18,14 +18,17 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // TMDB Configuration
         Properties().apply {
             val localPropertiesFile = rootProject.file("local.properties")
             if (localPropertiesFile.exists()) {
                 load(localPropertiesFile.inputStream())
-                // 將 API key 設為 BuildConfig 字段
-                buildConfigField("String", "TMDB_API_KEY", "\"${getProperty("tmdb.api.key")}\"")
+                buildConfigField("String", "TMDB_API_KEY", getProperty("tmdb.api.key")?.let { "\"$it\"" } ?: "\"\"")
+                buildConfigField("String", "TMDB_AUTH_TOKEN", getProperty("tmdb.auth.token")?.let { "\"$it\"" } ?: "\"\"")
             } else {
                 buildConfigField("String", "TMDB_API_KEY", "\"\"")
+                buildConfigField("String", "TMDB_AUTH_TOKEN", "\"\"")
             }
         }
     }
@@ -39,13 +42,16 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
+
     buildFeatures {
         compose = true
         buildConfig = true

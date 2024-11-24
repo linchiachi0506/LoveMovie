@@ -1,27 +1,43 @@
 package com.example.lovemovie.data
 
-import com.android.volley.BuildConfig
+
+import com.example.lovemovie.BuildConfig
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
-// TmdbApi.kt
 interface TmdbApi {
-    @GET("discover/movie")
+    @GET("movie/popular")
     suspend fun getPopularMovies(
-        @Query("api_key") apiKey: String = "eb74ce94febc33af53529bf04d1c8811",
+        @Query("api_key") apiKey: String = BuildConfig.TMDB_API_KEY,
         @Query("language") language: String = "zh-TW",
-        @Query("sort_by") sortBy: String = "popularity.desc",
-        @Query("include_adult") includeAdult: Boolean = false,
-        @Query("include_video") includeVideo: Boolean = false,
         @Query("page") page: Int = 1
     ): MoviesResponse
-}
 
-interface MovieApi {
     @GET("movie/{movieId}")
     suspend fun getMovieDetail(
         @Path("movieId") movieId: Int,
-        @Query("api_key") apiKey: String="eb74ce94febc33af53529bf04d1c8811",
+        @Query("api_key") apiKey: String = BuildConfig.TMDB_API_KEY,
         @Query("language") language: String = "zh-TW"
     ): MovieDetail
+
+    @GET("account/21643797/favorite/movies")
+    suspend fun getFavoriteMovies(
+        @Header("accept") accept: String = "application/json",
+        @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_AUTH_TOKEN}",
+        @Query("language") language: String = "zh-TW",
+        @Query("page") page: Int = 1,
+        @Query("sort_by") sortBy: String = "created_at.asc"
+    ): MoviesResponse
+
+
+    @POST("account/21643797/favorite")
+    suspend fun markAsFavorite(
+        @Header("accept") accept: String = "application/json",
+        @Header("content-type") contentType: String = "application/json",
+        @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_AUTH_TOKEN}",
+        @Body favoriteBody: FavoriteBody
+    )
 }
