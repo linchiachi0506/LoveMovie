@@ -15,7 +15,12 @@ interface TmdbApi {
         @Query("language") language: String = "zh-TW",
         @Query("page") page: Int = 1
     ): MoviesResponse
-
+    @GET("movie/popular")
+    suspend fun getPopularMoviesPaging(
+        @Query("page") page: Int,
+        @Query("api_key") apiKey: String = BuildConfig.TMDB_API_KEY,
+        @Query("language") language: String = "zh-TW"
+    ): MoviesResponse
     @GET("movie/{movieId}")
     suspend fun getMovieDetail(
         @Path("movieId") movieId: Int,

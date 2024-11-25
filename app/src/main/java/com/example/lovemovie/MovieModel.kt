@@ -7,7 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.lovemovie.data.Movie
 import com.example.lovemovie.data.MovieDetail
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -121,10 +121,5 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun isFavorite(movieId: Int): Boolean = movieId in _favoriteMoviesState.value
 
-    fun refreshMovies() {
-        loadMovies()
-        loadFavoriteMovies()
-    }
 }
