@@ -14,20 +14,27 @@ data class Movie(
     val vote_count: Int
 )
 data class MoviesResponse(
-    val results: List<Movie>
+    val page: Int,
+    val results: List<Movie>,
+    val total_pages: Int,
+    val total_results: Int
 )
-
 data class MovieDetail(
-    val id: Int,
-    val title: String,
+   val id: Int,
+    val original_language: String,
+    val original_title: String,
     val overview: String,
-    val poster_path: String?,
-    val backdrop_path: String?,
+    val popularity: Double,
+    val poster_path: String,
     val release_date: String,
+    val title: String,
+    val video: Boolean,
     val vote_average: Double,
+    val vote_count: Int,
+    val backdrop_path: String?,
     val runtime: Int?,
     val genres: List<Genre>,
-    val production_companies: List<ProductionCompany>,
+    val production_companies: List<ProductionCompany>
 )
 
 data class Genre(

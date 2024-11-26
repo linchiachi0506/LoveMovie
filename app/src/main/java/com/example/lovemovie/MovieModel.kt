@@ -6,11 +6,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.lovemovie.data.Movie
 import com.example.lovemovie.data.MovieDetail
+import com.example.lovemovie.data.MovieRepository
+import com.example.lovemovie.data.NetworkResult
 import kotlinx.coroutines.flow.MutableStateFlow
-
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
 sealed class UiState<out T> {
     object Loading : UiState<Nothing>()
     data class Success<T>(val data: T) : UiState<T>()
@@ -18,7 +20,7 @@ sealed class UiState<out T> {
 }
 
 class MovieViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = MovieRepository(application)
+    private val repository = MovieRepository.getInstance(application)
 
     private val _moviesState = MutableStateFlow<UiState<List<Movie>>>(UiState.Success(emptyList()))
     val moviesState = _moviesState.asStateFlow()
@@ -37,75 +39,91 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         loadFavoriteMovies()
     }
 
-    private fun loadMovies(page: Int = 1) {
+     fun loadMovies(page: Int = 1) {
         viewModelScope.launch {
-            _moviesState.value = UiState.Loading
-            try {
-                repository.getPopularMovies(page).fold(
-                    onSuccess = { response ->
-                        _moviesState.value = UiState.Success(response.results)
+            repository.getPopularMovies(page).collect { result ->
+                when (result) {
+                    is NetworkResult.Loading -> {
+                        _moviesState.value = UiState.Loading
+                        _isLoading.value = true
+                    }
+                    is NetworkResult.Success -> {
+                        _moviesState.value = UiState.Success(result.data.results)
+                        _isLoading.value = false
                         // 更新收藏狀態
-                        response.results.forEach { movie ->
+                        result.data.results.forEach { movie ->
                             updateFavoriteState(movie.id)
                         }
-                    },
-                    onFailure = { e ->
-                        _moviesState.value = UiState.Error(e.message ?: "Unknown error occurred")
                     }
-                )
-            } finally {
-                _isLoading.value = false
+                    is NetworkResult.Error -> {
+                        _moviesState.value = UiState.Error(result.message ?: "Unknown error occurred")
+                        _isLoading.value = false
+                    }
+                }
             }
         }
     }
 
     fun loadFavoriteMovies() {
         viewModelScope.launch {
-            try {
-                repository.getFavoriteMovies().fold(
-                    onSuccess = { response ->
-                        val favoriteIds = response.results.map { it.id }.toSet()
+            repository.getFavoriteMovies().collect { result ->
+                when (result) {
+                    is NetworkResult.Success -> {
+                        val favoriteIds = result.data.results.map { it.id }.toSet()
                         _favoriteMoviesState.value = favoriteIds
-                    },
-                    onFailure = { e ->
-                        Log.e("MovieViewModel", "Failed to load favorites: ${e.message}")
                     }
-                )
-            } catch (e: Exception) {
-                Log.e("MovieViewModel", "Error loading favorites", e)
+                    is NetworkResult.Error -> {
+                        Log.e("MovieViewModel", "Failed to load favorites: ${result.message}")
+                    }
+                    is NetworkResult.Loading -> {
+                        // 可以處理載入狀態
+                    }
+                }
             }
         }
     }
 
     fun getMovieDetail(movieId: Int) {
         viewModelScope.launch {
-            _movieDetailState.value = UiState.Loading
-            try {
-                repository.getMovieDetail(movieId).fold(
-                    onSuccess = { detail ->
-                        _movieDetailState.value = UiState.Success(detail)
-                        updateFavoriteState(detail.id)
-                    },
-                    onFailure = { e ->
-                        _movieDetailState.value = UiState.Error(e.message ?: "Failed to load movie details")
+            repository.getMovieDetail(movieId).collect { result ->
+                when (result) {
+                    is NetworkResult.Loading -> {
+                        _movieDetailState.value = UiState.Loading
+                        _isLoading.value = true
                     }
-                )
-            } finally {
-                _isLoading.value = false
+                    is NetworkResult.Success -> {
+                        _movieDetailState.value = UiState.Success(result.data)
+                        _isLoading.value = false
+                        updateFavoriteState(result.data.id)
+                    }
+                    is NetworkResult.Error -> {
+                        _movieDetailState.value = UiState.Error(result.message ?: "Failed to load movie details")
+                        _isLoading.value = false
+                    }
+                }
             }
         }
     }
 
-    fun toggleFavorite(movieId: Int) {
+    fun toggleFavorite(movieId: Int, movie: Movie) {
         viewModelScope.launch {
             try {
-                repository.toggleFavorite(movieId)
-                updateFavoriteState(movieId)
-                // 重新加載收藏列表以確保同步
-                loadFavoriteMovies()
+                when (val result = repository.toggleFavorite(movieId, movie)) {
+                    is NetworkResult.Success -> {
+                        updateFavoriteState(movieId)
+                        // 重新加載收藏列表以確保同步
+                        loadFavoriteMovies()
+                    }
+                    is NetworkResult.Error -> {
+                        Log.e("MovieViewModel", "Error toggling favorite: ${result.message}")
+                        // 可以添加錯誤通知機制
+                    }
+                    is NetworkResult.Loading -> {
+                        // 可以處理載入狀態
+                    }
+                }
             } catch (e: Exception) {
                 Log.e("MovieViewModel", "Error toggling favorite", e)
-                // 可以添加錯誤通知機制
             }
         }
     }
@@ -121,5 +139,8 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-
+    override fun onCleared() {
+        super.onCleared()
+        // 清理資源（如果需要）
+    }
 }
