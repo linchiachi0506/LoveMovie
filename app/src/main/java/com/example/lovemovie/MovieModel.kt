@@ -4,10 +4,15 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.example.lovemovie.data.Movie
 import com.example.lovemovie.data.MovieDetail
 import com.example.lovemovie.data.MovieRepository
 import com.example.lovemovie.data.NetworkResult
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -33,6 +38,16 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
+    val pagedMovies = Pager(
+        config = PagingConfig(
+            pageSize = 20,
+            enablePlaceholders = false,
+            initialLoadSize = 20,
+            prefetchDistance = 2
+        )
+    ) {
+        MoviePagingSource(repository)
+    }.flow.cachedIn(viewModelScope)
 
     init {
         loadMovies()
@@ -50,7 +65,6 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
                     is NetworkResult.Success -> {
                         _moviesState.value = UiState.Success(result.data.results)
                         _isLoading.value = false
-                        // 更新收藏狀態
                         result.data.results.forEach { movie ->
                             updateFavoriteState(movie.id)
                         }
@@ -76,7 +90,6 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
                         Log.e("MovieViewModel", "Failed to load favorites: ${result.message}")
                     }
                     is NetworkResult.Loading -> {
-                        // 可以處理載入狀態
                     }
                 }
             }
@@ -116,10 +129,10 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     is NetworkResult.Error -> {
                         Log.e("MovieViewModel", "Error toggling favorite: ${result.message}")
-                        // 可以添加錯誤通知機制
+
                     }
                     is NetworkResult.Loading -> {
-                        // 可以處理載入狀態
+
                     }
                 }
             } catch (e: Exception) {
@@ -139,8 +152,4 @@ class MovieViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        // 清理資源（如果需要）
-    }
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -41,6 +42,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.paging.LoadState
+import androidx.paging.PagingData
+import androidx.paging.compose.collectAsLazyPagingItems
 import coil.compose.AsyncImage
 import com.example.lovemovie.Component.EmptyContent
 import com.example.lovemovie.Component.ErrorContent
@@ -49,7 +53,11 @@ import com.example.lovemovie.Component.MovieInfo
 import com.example.lovemovie.MovieViewModel
 import com.example.lovemovie.UiState
 import com.example.lovemovie.data.Movie
+import kotlinx.coroutines.flow.Flow
 
+
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.SwipeRefreshState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,10 +65,12 @@ fun MovieListScreen(
     onMovieClick: (Int) -> Unit,
     viewModel: MovieViewModel
 ) {
-    val moviesState by viewModel.moviesState.collectAsState()
+    val movies = viewModel.pagedMovies.collectAsLazyPagingItems()
     val favoriteMoviesState by viewModel.favoriteMoviesState.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     var showFavorites by remember { mutableStateOf(false) }
+
+    val swipeRefreshState = remember { SwipeRefreshState(isRefreshing = isLoading) }
 
     Scaffold(
         topBar = {
@@ -88,35 +98,40 @@ fun MovieListScreen(
             )
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            when (val state = moviesState) {
-                is UiState.Success -> {
-                    val displayMovies = if (showFavorites) {
-                        state.data.filter { it.id in favoriteMoviesState }
-                    } else {
-                        state.data
-                    }
+        SwipeRefresh(
+            state = swipeRefreshState,
+            onRefresh = { movies.refresh() }
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                when {
+                    showFavorites -> {
+                        val favoriteMovies = movies.itemSnapshotList.items
+                            .filter { it.id in favoriteMoviesState }
 
-                    if (displayMovies.isEmpty()) {
-                        EmptyContent(
-                            message = if (showFavorites) {
-                                "還沒有收藏的電影\n趕快去收藏喜歡的電影吧！"
-                            } else {
-                                "沒有找到電影"
+                        if (favoriteMovies.isEmpty()) {
+                            EmptyContent(
+                                message = "還沒有收藏的電影\n趕快去收藏喜歡的電影吧！"
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FavoriteBorder,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
-                        ) {
-                            Icon(
-                                imageVector = if (showFavorites) {
-                                    Icons.Default.FavoriteBorder
-                                } else {
-                                    Icons.Default.Movie
-                                },
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                        } else {
+                            MovieGrid(
+                                movies = favoriteMovies,
+                                favoriteMoviesState = favoriteMoviesState,
+                                paddingValues = paddingValues,
+                                onMovieClick = onMovieClick,
+                                onToggleFavorite = { id, movie ->
+                                    viewModel.toggleFavorite(id, movie)
+                                }
                             )
                         }
-                    } else {
+                    }
+                    else -> {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
                             contentPadding = paddingValues,
@@ -125,57 +140,63 @@ fun MovieListScreen(
                             modifier = Modifier.fillMaxSize()
                         ) {
                             items(
-                                items = displayMovies,
-                                key = { it.id }
-                            ) { movie ->
-                                MovieItem(
-                                    movie = movie,
-                                    isFavorite = movie.id in favoriteMoviesState,
-                                    onMovieClick = onMovieClick,
-                                    onToggleFavorite = {
-                                        viewModel.toggleFavorite(movie.id, movie)
-                                    }
-                                )
+                                count = movies.itemCount,
+                                key = { index -> movies[index]?.id ?: index }
+                            ) { index ->
+                                movies[index]?.let { movie ->
+                                    MovieItem(
+                                        movie = movie,
+                                        isFavorite = movie.id in favoriteMoviesState,
+                                        onMovieClick = onMovieClick,
+                                        onToggleFavorite = { viewModel.toggleFavorite(movie.id, movie) }
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                is UiState.Error -> {
+                if (movies.loadState.refresh is LoadState.Error) {
+                    val error = (movies.loadState.refresh as LoadState.Error).error
                     ErrorContent(
-                        error = state.message,
-                        onRetry = { viewModel.loadMovies() }
+                        error = error.message ?: "加載錯誤",
+                        onRetry = { movies.retry() }
                     )
-                }
-
-                is UiState.Loading -> {
-                    // Loading content is handled by the overlay
-                }
-            }
-
-            // Loading overlay
-            AnimatedVisibility(
-                visible = isLoading,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        CircularProgressIndicator()
-                    }
                 }
             }
         }
     }
 }
 
+
+@Composable
+fun MovieGrid(
+    movies: List<Movie>,  // 用於收藏列表
+    favoriteMoviesState: Set<Int>,
+    paddingValues: PaddingValues,
+    onMovieClick: (Int) -> Unit,
+    onToggleFavorite: (Int, Movie) -> Unit
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        contentPadding = paddingValues,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(
+            items = movies,
+            key = { it.id }
+        ) { movie ->
+            MovieItem(
+                movie = movie,
+                isFavorite = movie.id in favoriteMoviesState,
+                onMovieClick = onMovieClick,
+                onToggleFavorite = { onToggleFavorite(movie.id, movie) }
+            )
+        }
+    }
+}
 @Composable
 fun MovieItem(
     movie: Movie,

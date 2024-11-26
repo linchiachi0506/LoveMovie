@@ -128,7 +128,22 @@ class MovieRepository private constructor(private val context: Context) {
             }
         }
     }
+    suspend fun getPopularMoviesPaging(page: Int): NetworkResult<MoviesResponse> {
+        // 先檢查緩存
+        val cachedData = getCachedMovies("popular_$page")
+        if (cachedData != null) {
+            return NetworkResult.Success(cachedData)
+        }
 
+        return try {
+            val response = tmdbApi.getPopularMovies(page = page)
+            // 緩存數據
+            cacheMovies("popular_$page", response)
+            NetworkResult.Success(response)
+        } catch (e: Exception) {
+            handleNetworkError(e)
+        }
+    }
     suspend fun toggleFavorite(movieId: Int, movie: Movie): NetworkResult<Boolean> {
         val isFavorite = isFavorite(movieId)
         return try {
